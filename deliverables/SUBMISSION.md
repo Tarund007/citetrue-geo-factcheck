@@ -18,7 +18,7 @@ Attached and linked below, you will find the complete deliverables covering **Pa
 ### 1. Deliverables Links
 
 - **Deployed Application Link:** `[Insert Live Streamlit Cloud URL here]`
-- **GitHub Repository:** `[Insert Public GitHub Repo URL here]`
+- **GitHub Repository:** https://github.com/Tarund007/citetrue-geo-factcheck
 - **Presentation Deck (Part 1):** Attached in email as `CogCulture_GEO_CiteTrue.pptx` (located in repository at `deliverables/CogCulture_GEO_CiteTrue.pptx`)
 - **30-Second Demo Video Walkthrough:** `[Insert Loom / Drive Link or attached .mp4]`
 

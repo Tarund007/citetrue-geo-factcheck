@@ -4,7 +4,7 @@
 > **Author:** Himanshu  
 > **Submission Date:** November 2026  
 > **Live App:** `[Insert Deployed Streamlit URL]`  
-> **GitHub Repo:** `[Insert GitHub Repo URL]`  
+> **GitHub Repo:** https://github.com/Tarund007/citetrue-geo-factcheck  
 
 ---
 
