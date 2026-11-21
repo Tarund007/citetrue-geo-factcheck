@@ -28,14 +28,40 @@ def parse_pdf_text(file_bytes_or_path) -> List[Dict[str, Any]]:
     return pages_data
 
 
+def get_best_available_model(client: genai.Client) -> str:
+    """
+    Dynamically queries client.models.list() to find the active available model,
+    with an intelligent fallback priority.
+    """
+    preferred_order = [
+        'gemini-3.5-flash-lite',
+        'gemini-3.8-flash',
+        'gemini-2.5-flash',
+        'gemini-2.0-flash',
+        'gemini-1.5-flash',
+        'gemini-4-hydrogen'
+    ]
+    try:
+        remote_models = [m.name.replace('models/', '') for m in client.models.list()]
+        for pref in preferred_order:
+            for r in remote_models:
+                if pref in r:
+                    return r
+        # If no preferred found, pick first model supporting generateContent
+        for r in remote_models:
+            if 'flash' in r or 'gemini' in r:
+                return r
+    except Exception:
+        pass
+    return 'gemini-3.5-flash-lite'
+
+
 def extract_claims_from_text(pages_data: List[Dict[str, Any]], gemini_api_key: str, max_claims: int = 15) -> List[Dict[str, Any]]:
     """
     Invokes Gemini with structured schema to extract numerical/date/factual claims.
     """
     if not gemini_api_key:
-        raise ValueError("GEMINI_API_KEY is required for claim extraction.")
-
-    client = genai.Client(api_key=gemini_api_key)
+        return fallback_heuristic_extraction(pages_data, max_claims=max_claims)
 
     # Combine text with page demarcations
     full_text_corpus = ""
@@ -48,31 +74,44 @@ def extract_claims_from_text(pages_data: List[Dict[str, Any]], gemini_api_key: s
         f"Extract at most {max_claims} key claims. Format as JSON array only."
     )
 
-    # Try standard supported model names in order of availability
-    candidate_models = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro']
-    response = None
-    last_err = None
-
-    for m in candidate_models:
-        try:
-            response = client.models.generate_content(
-                model=m,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    temperature=0.1
-                )
-            )
-            if response and response.text:
-                break
-        except Exception as err:
-            last_err = err
-            continue
-
-    if not response or not response.text:
-        raise last_err or RuntimeError("No response from Gemini models")
-
     try:
+        client = genai.Client(api_key=gemini_api_key)
+        best_model = get_best_available_model(client)
+        
+        candidate_models = [
+            best_model,
+            'gemini-3.5-flash-lite',
+            'gemini-2.5-flash',
+            'gemini-2.0-flash',
+            'gemini-1.5-flash',
+            'gemini-4-hydrogen'
+        ]
+        
+        # Deduplicate preserving order
+        candidate_models = list(dict.fromkeys(candidate_models))
+        response = None
+        last_err = None
+
+        for m in candidate_models:
+            try:
+                response = client.models.generate_content(
+                    model=m,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        temperature=0.1
+                    )
+                )
+                if response and response.text:
+                    break
+            except Exception as err:
+                last_err = err
+                continue
+
+        if not response or not response.text:
+            print(f"Gemini API returned error ({last_err}), using deterministic heuristic fallback...")
+            return fallback_heuristic_extraction(pages_data, max_claims=max_claims)
+
         raw_json = response.text.strip()
         # Clean potential markdown fences
         if raw_json.startswith("```json"):
@@ -87,10 +126,9 @@ def extract_claims_from_text(pages_data: List[Dict[str, Any]], gemini_api_key: s
             return claims[:max_claims]
         elif isinstance(claims, dict) and "claims" in claims:
             return claims["claims"][:max_claims]
-        return []
+        return fallback_heuristic_extraction(pages_data, max_claims=max_claims)
     except Exception as e:
-        # Fallback regex extraction if API fails or parse fails
-        print(f"LLM Extraction failed ({e}), using deterministic heuristic fallback...")
+        print(f"Extraction exception ({e}), falling back safely...")
         return fallback_heuristic_extraction(pages_data, max_claims=max_claims)
 
 
