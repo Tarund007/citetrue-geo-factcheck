@@ -49,15 +49,35 @@ def judge_claim(claim: Dict[str, Any], search_results: List[Dict[str, Any]], gem
         f"Provide verdict, evidence_summary, and corrected_fact in JSON format."
     )
 
-    try:
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                temperature=0.0
+    candidate_models = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro']
+    response = None
+    last_err = None
+
+    for m in candidate_models:
+        try:
+            response = client.models.generate_content(
+                model=m,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    temperature=0.0
+                )
             )
-        )
+            if response and response.text:
+                break
+        except Exception as err:
+            last_err = err
+            continue
+
+    if not response or not response.text:
+        return {
+            "verdict": "Inaccurate",
+            "evidence_summary": f"Automated judgement encountered rate-limit or parsing issue: {str(last_err)[:120]}",
+            "corrected_fact": "Manual verification recommended via provided sources.",
+            "sources": sources[:2]
+        }
+
+    try:
         raw_json = response.text.strip()
         if raw_json.startswith("```json"):
             raw_json = raw_json[7:]

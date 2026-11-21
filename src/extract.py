@@ -48,15 +48,31 @@ def extract_claims_from_text(pages_data: List[Dict[str, Any]], gemini_api_key: s
         f"Extract at most {max_claims} key claims. Format as JSON array only."
     )
 
-    try:
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                temperature=0.1
+    # Try standard supported model names in order of availability
+    candidate_models = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro']
+    response = None
+    last_err = None
+
+    for m in candidate_models:
+        try:
+            response = client.models.generate_content(
+                model=m,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    temperature=0.1
+                )
             )
-        )
+            if response and response.text:
+                break
+        except Exception as err:
+            last_err = err
+            continue
+
+    if not response or not response.text:
+        raise last_err or RuntimeError("No response from Gemini models")
+
+    try:
         raw_json = response.text.strip()
         # Clean potential markdown fences
         if raw_json.startswith("```json"):
