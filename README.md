@@ -172,6 +172,17 @@ Emerging Generative Engine Optimization (GEO) platforms (such as *Profound, Peec
 
 ## 9. Screenshots Manually Checkout
 
+| # | Extracted Claim from `trap_document.pdf` | Expected Verdict | Verified Real-World Fact |
+| :---: | --- | :---: | --- |
+| 1 | "OpenAI was founded in December 2015 as a non-profit artificial intelligence research laboratory in San Francisco, California." | Verified | Confirmed founded Dec 2015 in San Francisco by Altman, Musk, Brockman, Sutskever. |
+| 2 | "For instance, Apple released the iPhone 16 series in September 2024 powered by the A18 and A18 Pro Bionic chips." | Verified | Confirmed launched September 9, 2024 powered by the second-gen 3nm A18 chip family. |
+| 3 | "In 2022, Zomato acquired quick-commerce platform Blinkit for $1.8 billion in an all-stock deal." | Inaccurate | Acquired Blinkit for $568 million (₹4,447 crore), not $1.8 billion. |
+| 4 | "Meanwhile, competitor Swiggy is currently planning its initial public offering (IPO) scheduled for late 2026." | Inaccurate | Swiggy already completed its IPO in November 2024 and is publicly listed on NSE/BSE. |
+| 5 | "DLF Cyber City is an integrated commercial technology business district located in Gurugram, Haryana." | Verified | Confirmed major commercial cyber tech district in Gurugram, Haryana. |
+| 6 | "for example, Cashfree Payments was founded in 2021 by Akash Gehani and Reeju Datta in Bengaluru." | Inaccurate | Founded in 2015 by Akash Gehani and Reeju Datta, not 2021. |
+| 7 | "Apollo Hospitals operates over 120,000 hospital beds across 45 countries worldwide as of 2024..." | Inaccurate | Operates ~10,000 to 11,000 beds across ~70 hospitals, predominantly in India. |
+| 8 | "In international consumer FMCG, Satya Nadella has served as the Chairman and Chief Executive Officer of PepsiCo since 2018." | False | Ramon Laguarta has been CEO of PepsiCo since 2018. Satya Nadella is CEO of Microsoft. |
+
 
 
 
