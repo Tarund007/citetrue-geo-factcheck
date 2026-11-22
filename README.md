@@ -168,5 +168,10 @@ Emerging Generative Engine Optimization (GEO) platforms (such as *Profound, Peec
 *Built with precision for Cog Culture Product Management.*
 
 ## 8. Screenshots of the webapp
+<img width="1917" height="1078" alt="image" src="https://github.com/user-attachments/assets/aef1e9dd-9a1b-4619-8596-45f707d34c00" />
+
+## 9. Screenshots Manually Checkout
+
+
 
 
