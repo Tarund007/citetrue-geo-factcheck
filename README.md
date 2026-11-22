@@ -166,3 +166,7 @@ Emerging Generative Engine Optimization (GEO) platforms (such as *Profound, Peec
 - **Tier 3 (Enterprise Multi-Brand Portal — ₹2.5L / $3,000 per month):** Self-serve dashboard access for client comms teams with automated Wikipedia, schema markup, and press seeding recommendations.
 
 *Built with precision for Cog Culture Product Management.*
+
+## 8. Screenshots of the webapp
+
+
