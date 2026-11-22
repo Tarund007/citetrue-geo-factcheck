@@ -198,12 +198,39 @@ st.markdown(
     "and detects outdated or hallucinated figures with verified real-world corrections."
 )
 
-# File uploader
-uploaded_file = st.file_uploader(
-    "Upload your Trap Document / Marketing Collateral (PDF)", 
+# Step 1: Primary Document Uploader
+st.markdown("### 📤 Step 1: Upload Document to Fact-Check")
+primary_uploaded_file = st.file_uploader(
+    "Upload PDF (Marketing Collateral / PR / Research Deck / Any Document)", 
     type=["pdf"], 
-    help="Upload your own Trap Document, client pitch deck, press release, or whitepaper to test truth accuracy."
+    key="primary_doc_uploader",
+    help="Upload the primary document whose claims, dates, and stats you want to verify."
 )
+
+st.markdown("---")
+
+# Step 2: Recruiter Benchmark & Trap Document Testing
+st.markdown("### 🎯 Step 2: Assessment Benchmark & Trap Document Testing")
+st.caption("Recruiters can evaluate the system using their own custom trap document, or by running the pre-built benchmark test document.")
+
+tab_custom_trap, tab_preset_trap = st.tabs(["📁 Upload Your Custom Trap Document", "⚡ Use Pre-Built Assessment Trap Document"])
+
+with tab_custom_trap:
+    custom_trap_file = st.file_uploader(
+        "Upload your Trap Document (PDF containing intentional lies & outdated stats)",
+        type=["pdf"],
+        key="custom_trap_uploader",
+        help="Upload the recruiter trap document to test if CiteTrue correctly catches fake numbers and outdated statistics."
+    )
+
+with tab_preset_trap:
+    st.markdown("**Pre-Built Evaluation Suite (`fixtures/trap_document.pdf`)**")
+    st.caption("Contains 8 benchmark test claims: Swiggy IPO, Zomato-Blinkit acquisition valuation, Apollo Hospitals beds, and PepsiCo CEO.")
+    col_load, col_view, col_spacer = st.columns([1.5, 1.2, 2.5])
+    with col_load:
+        use_trap_doc = st.button("📄 Load Assessment Trap Document", help="Loads pre-built trap document with intentional lies and outdated stats.")
+    with col_view:
+        view_trap_doc = st.button("👁️ View Document", help="Inspect the raw text and claims inside the trap document before running.")
 
 # State initialization
 if "analysis_results" not in st.session_state:
@@ -228,34 +255,41 @@ def preview_trap_doc_dialog():
     else:
         st.error("Trap document file not found at fixtures/trap_document.pdf")
 
-# Document Action Row: Load and View
-col_load, col_view, col_spacer = st.columns([1.5, 1.2, 2.5])
-with col_load:
-    use_trap_doc = st.button("📄 Load Assessment Trap Document", help="Loads pre-built trap document with 10 intentional lies and outdated stats.")
-with col_view:
-    view_trap_doc = st.button("👁️ View Document", help="Inspect the raw text and claims inside the trap document before running.")
-
 if view_trap_doc:
     preview_trap_doc_dialog()
 
 if use_trap_doc:
-    st.session_state.selected_document_source = "trap_doc"
+    st.session_state.selected_document_source = "preset_trap"
     st.toast("✅ Assessment Trap Document loaded successfully!", icon="📄")
-    st.success("🎯 **Assessment Trap Document Loaded:** Ready to verify. Click 'Run Truth-Check Audit' below.")
 
-if uploaded_file is not None:
-    st.session_state.selected_document_source = "uploaded"
+if custom_trap_file is not None:
+    st.session_state.selected_document_source = "custom_trap"
 
-# Determine target file
+if primary_uploaded_file is not None and custom_trap_file is None and not use_trap_doc and st.session_state.selected_document_source != "preset_trap":
+    st.session_state.selected_document_source = "primary_upload"
+
+# Active Document Indicator Banner
 target_file = None
-if st.session_state.selected_document_source == "uploaded" and uploaded_file is not None:
-    target_file = uploaded_file
-elif st.session_state.selected_document_source == "trap_doc":
+active_doc_name = ""
+
+if custom_trap_file is not None:
+    target_file = custom_trap_file
+    active_doc_name = f"Custom Trap Document: {custom_trap_file.name}"
+    st.success(f"🎯 **Active Target:** `{active_doc_name}` ready to fact-check.")
+elif st.session_state.selected_document_source == "preset_trap":
     trap_path = os.path.join(os.path.dirname(__file__), "fixtures", "trap_document.pdf")
     if os.path.exists(trap_path):
         target_file = open(trap_path, "rb")
+        active_doc_name = "Pre-built Assessment Trap Document (fixtures/trap_document.pdf)"
+        st.success(f"🎯 **Active Target:** `{active_doc_name}` ready to fact-check.")
     else:
         st.warning("Trap document not yet created on disk. Please upload a PDF.")
+elif primary_uploaded_file is not None:
+    target_file = primary_uploaded_file
+    active_doc_name = f"Primary Document: {primary_uploaded_file.name}"
+    st.info(f"📄 **Active Target:** `{active_doc_name}` ready to fact-check.")
+else:
+    st.info("👆 Please upload a document or select the Assessment Trap Document above to begin.")
 
 if target_file and st.button("Run Truth-Check Audit", type="primary"):
     if not gemini_key:
