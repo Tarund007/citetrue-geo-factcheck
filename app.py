@@ -201,22 +201,55 @@ st.markdown(
 # File uploader
 uploaded_file = st.file_uploader("Upload Document (PDF)", type=["pdf"], help="Upload client pitch decks, press releases, or whitepapers.")
 
-col_sample, col_info = st.columns([1, 2])
-with col_sample:
-    use_trap_doc = st.button("📄 Load Assessment Trap Document", help="Loads pre-built trap document with 10 intentional lies and outdated stats.")
-
 # State initialization
 if "analysis_results" not in st.session_state:
     st.session_state.analysis_results = None
+if "selected_document_source" not in st.session_state:
+    st.session_state.selected_document_source = None
 
-target_file = None
+# Dialog for previewing the Trap Document content
+@st.dialog("📄 Assessment Trap Document Preview")
+def preview_trap_doc_dialog():
+    trap_path = os.path.join(os.path.dirname(__file__), "fixtures", "trap_document.pdf")
+    if os.path.exists(trap_path):
+        pages = parse_pdf_text(trap_path)
+        st.markdown("**Document Title:** Enterprise Market Analysis & Technology Audit (2025/2026)")
+        st.caption("This document contains intentional truthful facts, outdated stats, and fabricated figures used to benchmark fact-checking accuracy.")
+        st.markdown("---")
+        for p in pages:
+            st.markdown(f"**Page {p['page_number']} Content:**")
+            st.code(p["text"], language="markdown")
+        st.markdown("---")
+        st.caption("💡 Click 'Load Assessment Trap Document' on the main screen to run the verification engine on this document.")
+    else:
+        st.error("Trap document file not found at fixtures/trap_document.pdf")
+
+# Document Action Row: Load and View
+col_load, col_view, col_spacer = st.columns([1.5, 1.2, 2.5])
+with col_load:
+    use_trap_doc = st.button("📄 Load Assessment Trap Document", help="Loads pre-built trap document with 10 intentional lies and outdated stats.")
+with col_view:
+    view_trap_doc = st.button("👁️ View Document", help="Inspect the raw text and claims inside the trap document before running.")
+
+if view_trap_doc:
+    preview_trap_doc_dialog()
+
+if use_trap_doc:
+    st.session_state.selected_document_source = "trap_doc"
+    st.toast("✅ Assessment Trap Document loaded successfully!", icon="📄")
+    st.success("🎯 **Assessment Trap Document Loaded:** Ready to verify. Click 'Run Truth-Check Audit' below.")
+
 if uploaded_file is not None:
+    st.session_state.selected_document_source = "uploaded"
+
+# Determine target file
+target_file = None
+if st.session_state.selected_document_source == "uploaded" and uploaded_file is not None:
     target_file = uploaded_file
-elif use_trap_doc:
+elif st.session_state.selected_document_source == "trap_doc":
     trap_path = os.path.join(os.path.dirname(__file__), "fixtures", "trap_document.pdf")
     if os.path.exists(trap_path):
         target_file = open(trap_path, "rb")
-        st.info("Loaded `fixtures/trap_document.pdf` containing benchmark test claims.")
     else:
         st.warning("Trap document not yet created on disk. Please upload a PDF.")
 
