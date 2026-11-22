@@ -3,7 +3,7 @@
 > **Assignment:** Management Trainee — Product Management at **Cog Culture**  
 > **Author:** Tarun Dinkar  
 > **Submission Date:** November 2026  
-> **Live App:** `[Insert Deployed Streamlit URL]`  
+> **Live App:** `[[Insert Deployed Streamlit URL](https://citetrue-geo-factcheck-td.streamlit.app/)]`  
 > **GitHub Repo:** https://github.com/Tarund007/citetrue-geo-factcheck  
 
 ---
