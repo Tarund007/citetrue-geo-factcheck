@@ -52,7 +52,7 @@ Emerging Generative Engine Optimization (GEO) platforms (such as *Profound, Peec
                                   |
                                   v
 +--------------------------------------------------------------------+
-| 2. Extraction: pdfplumber text parsing + Gemini 2.5 Flash          |
+| 2. Extraction: pdfplumber text parsing + Gemini 3.5 Flash          |
 |    - Isolates percentages, currencies, dates, headcounts, versions |
 |    - Heuristic regex fallback for zero-downtime execution          |
 +--------------------------------------------------------------------+
