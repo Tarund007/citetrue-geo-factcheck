@@ -1,7 +1,7 @@
 # CiteTrue GEO: The Generative Truth Layer & Automated Fact-Checking Platform
 
 > **Candidate Assignment:** Management Trainee — Product Management at **Cog Culture**  
-> **Author:** Himanshu  
+> **Author:** Tarun Dinkar  
 > **Submission Date:** November 2026  
 > **Live App:** `[Insert Deployed Streamlit URL]`  
 > **GitHub Repo:** https://github.com/Tarund007/citetrue-geo-factcheck  
