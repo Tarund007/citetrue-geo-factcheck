@@ -22,60 +22,142 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom minimal editorial CSS (Black & White with sleek accent)
+# Custom minimal editorial CSS with dark/light mode compatibility and elevated readability
 st.markdown("""
 <style>
-    .main {
-        background-color: #FAFAFA;
-        color: #111111;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    /* Clean typography & root adjustments */
+    body, [data-testid="stAppViewContainer"] {
+        font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
-    h1, h2, h3 {
-        color: #111111;
+    
+    /* Audit Metric Summary Cards */
+    .metric-card {
+        background: #18191C;
+        border: 1px solid #2B2D31;
+        border-radius: 10px;
+        padding: 20px 14px;
+        text-align: center;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    }
+    .metric-number {
+        font-size: 2.2rem;
+        font-weight: 800;
+        line-height: 1.1;
+        margin-bottom: 6px;
+    }
+    .metric-label {
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: #A0A5AD;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    /* Verification Claim Card */
+    .claim-card {
+        background-color: #16171B;
+        border: 1px solid #282A2F;
+        border-radius: 10px;
+        padding: 22px 24px;
+        margin-bottom: 18px;
+        box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+        transition: transform 0.15s ease, border-color 0.15s ease;
+    }
+    .claim-card:hover {
+        border-color: #3F4249;
+    }
+
+    /* Badges */
+    .badge-pill {
+        padding: 5px 12px;
+        border-radius: 6px;
         font-weight: 700;
-        letter-spacing: -0.02em;
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        display: inline-flex;
+        align-items: center;
     }
     .badge-verified {
-        background-color: #E8F5E9;
-        color: #2E7D32;
-        padding: 4px 10px;
-        border-radius: 4px;
-        font-weight: 600;
-        font-size: 0.85rem;
-        display: inline-block;
+        background: rgba(46, 125, 50, 0.18);
+        color: #4CAF50;
+        border: 1px solid rgba(76, 175, 80, 0.4);
     }
     .badge-inaccurate {
-        background-color: #FFF3E0;
-        color: #E65100;
-        padding: 4px 10px;
-        border-radius: 4px;
-        font-weight: 600;
-        font-size: 0.85rem;
-        display: inline-block;
+        background: rgba(230, 81, 0, 0.18);
+        color: #FF9800;
+        border: 1px solid rgba(255, 152, 0, 0.4);
     }
     .badge-false {
-        background-color: #FFEBEE;
-        color: #C62828;
-        padding: 4px 10px;
-        border-radius: 4px;
-        font-weight: 600;
-        font-size: 0.85rem;
-        display: inline-block;
+        background: rgba(198, 40, 40, 0.18);
+        color: #EF5350;
+        border: 1px solid rgba(239, 83, 80, 0.4);
     }
-    .metric-card {
-        background: #FFFFFF;
-        border: 1px solid #E0E0E0;
-        padding: 16px;
+
+    /* Claim Text and Content */
+    .claim-quote {
+        font-size: 1.12rem;
+        font-weight: 600;
+        color: #F3F4F6;
+        line-height: 1.5;
+        margin-top: 10px;
+        margin-bottom: 14px;
+        border-left: 3px solid #E53935;
+        padding-left: 12px;
+    }
+    .claim-fact-box {
+        background: #1F2127;
         border-radius: 6px;
-        text-align: center;
+        padding: 12px 16px;
+        margin-bottom: 12px;
+        font-size: 0.95rem;
+        color: #E2E4E9;
+        line-height: 1.45;
+    }
+    .claim-evidence {
+        font-size: 0.9rem;
+        color: #B0B5BF;
+        line-height: 1.45;
+        margin-bottom: 12px;
+    }
+
+    /* Clickable Source Pills */
+    .source-pills-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        margin-top: 6px;
+    }
+    .source-link-pill {
+        display: inline-flex;
+        align-items: center;
+        background: #23252C;
+        color: #60A5FA !important;
+        border: 1px solid #374151;
+        padding: 4px 12px;
+        border-radius: 16px;
+        font-size: 0.8rem;
+        text-decoration: none !important;
+        font-weight: 500;
+        transition: all 0.15s ease-in-out;
+    }
+    .source-link-pill:hover {
+        background: #2D3748;
+        color: #93C5FD !important;
+        border-color: #60A5FA;
+        text-decoration: none !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Helper to read secrets from st.secrets or os.environ
+# Helper to read secrets from st.secrets or os.environ safely
 def get_secret(key_name, default=""):
-    if key_name in st.secrets:
-        return st.secrets[key_name]
+    try:
+        if key_name in st.secrets:
+            return st.secrets[key_name]
+    except Exception:
+        pass
     return os.environ.get(key_name, default)
 
 # Sidebar configuration
@@ -169,7 +251,8 @@ if target_file and st.button("Run Truth-Check Audit", type="primary"):
                     "Verdict": verdict_data["verdict"],
                     "Corrected Fact / Ground Truth": verdict_data["corrected_fact"],
                     "Evidence Summary": verdict_data["evidence_summary"],
-                    "Sources": ", ".join(verdict_data["sources"]) if verdict_data["sources"] else "None"
+                    "Sources": verdict_data.get("sources", []),
+                    "Sources_str": ", ".join(verdict_data.get("sources", [])) if verdict_data.get("sources") else "None"
                 })
                 progress_bar.progress((i + 1) / len(claims))
 
@@ -191,35 +274,99 @@ if st.session_state.analysis_results:
 
     c1, c2, c3, c4 = st.columns(4)
     with c1:
-        st.markdown(f"<div class='metric-card'><h3>{total_claims}</h3><p>Total Claims Audited</p></div>", unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class='metric-card'>
+            <div class='metric-number' style='color:#F3F4F6;'>{total_claims}</div>
+            <div class='metric-label'>Total Claims Audited</div>
+        </div>
+        """, unsafe_allow_html=True)
     with c2:
-        st.markdown(f"<div class='metric-card'><h3 style='color:#2E7D32;'>{verified_count}</h3><p>Verified Accurate</p></div>", unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class='metric-card'>
+            <div class='metric-number' style='color:#4CAF50;'>{verified_count}</div>
+            <div class='metric-label'>Verified Accurate</div>
+        </div>
+        """, unsafe_allow_html=True)
     with c3:
-        st.markdown(f"<div class='metric-card'><h3 style='color:#E65100;'>{inaccurate_count}</h3><p>Inaccurate / Outdated</p></div>", unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class='metric-card'>
+            <div class='metric-number' style='color:#FF9800;'>{inaccurate_count}</div>
+            <div class='metric-label'>Inaccurate / Outdated</div>
+        </div>
+        """, unsafe_allow_html=True)
     with c4:
-        st.markdown(f"<div class='metric-card'><h3 style='color:#C62828;'>{false_count}</h3><p>False / Fabricated</p></div>", unsafe_allow_html=True)
+        st.markdown(f"""
+        <div class='metric-card'>
+            <div class='metric-number' style='color:#EF5350;'>{false_count}</div>
+            <div class='metric-label'>False / Fabricated</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-    st.markdown("### Detailed Claim-Level Verification Matrix")
+    st.markdown("<div style='margin-top: 30px;'></div>", unsafe_allow_html=True)
+    st.subheader("Detailed Claim-Level Verification Matrix")
     
     # Custom display cards for clean PM UI
     for row in results:
         badge_class = "badge-verified" if row["Verdict"] == "Verified" else ("badge-inaccurate" if row["Verdict"] == "Inaccurate" else "badge-false")
+        border_accent = "#4CAF50" if row["Verdict"] == "Verified" else ("#FF9800" if row["Verdict"] == "Inaccurate" else "#EF5350")
+        
+        # Build clickable source pills
+        sources_list = row.get("Sources", [])
+        if isinstance(sources_list, str):
+            sources_list = [s.strip() for s in sources_list.split(",") if s.strip() and s.strip() != "None"]
+            
+        pills_html = ""
+        if sources_list:
+            for s_url in sources_list:
+                clean_url = s_url.strip()
+                if clean_url.startswith("http"):
+                    # Extract domain for clean aesthetic pill label
+                    try:
+                        from urllib.parse import urlparse
+                        domain = urlparse(clean_url).netloc.replace("www.", "")
+                        label = domain if domain else "Source Link"
+                    except Exception:
+                        label = "Source Link"
+                    pills_html += f"<a href='{clean_url}' target='_blank' rel='noopener noreferrer' class='source-link-pill'>🔗 {label} ↗</a> "
+                else:
+                    pills_html += f"<span style='color:#9CA3AF; font-size:0.8rem;'>{clean_url}</span> "
+        else:
+            pills_html = "<span style='color:#9CA3AF; font-size:0.85rem; font-style:italic;'>No public external web citations found</span>"
+
         with st.container():
             st.markdown(f"""
-            <div style='background: white; border: 1px solid #EAEAEA; border-left: 5px solid {"#2E7D32" if row["Verdict"]=="Verified" else ("#E65100" if row["Verdict"]=="Inaccurate" else "#C62828")}; padding: 14px 18px; margin-bottom: 12px; border-radius: 4px;'>
-                <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;'>
-                    <span style='font-size: 0.85rem; color: #666;'>Claim #{row["Claim ID"]} &bull; Category: <b>{row["Type"]}</b></span>
-                    <span class='{badge_class}'>{row["Verdict"]}</span>
+            <div class='claim-card' style='border-left: 5px solid {border_accent};'>
+                <div style='display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;'>
+                    <span style='font-size: 0.82rem; font-weight: 600; color: #9CA3AF; letter-spacing: 0.05em; text-transform: uppercase;'>
+                        Claim #{row["Claim ID"]} &nbsp;•&nbsp; Type: <span style='color: #E2E8F0;'>{row["Type"]}</span>
+                    </span>
+                    <span class='badge-pill {badge_class}'>{row["Verdict"]}</span>
                 </div>
-                <div style='font-size: 1.05rem; font-weight: 500; margin-bottom: 8px;'>"{row["Claim"]}"</div>
-                <div style='font-size: 0.95rem; margin-bottom: 6px;'><b>Corrected Real Fact:</b> {row["Corrected Fact / Ground Truth"]}</div>
-                <div style='font-size: 0.88rem; color: #444; margin-bottom: 6px;'><b>Evidence:</b> {row["Evidence Summary"]}</div>
-                <div style='font-size: 0.8rem; color: #777;'><b>Sources:</b> {row["Sources"]}</div>
+                <div class='claim-quote'>"{row["Claim"]}"</div>
+                <div class='claim-fact-box'>
+                    <div style='font-size: 0.8rem; font-weight: 700; color: #9CA3AF; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 3px;'>
+                        Corrected Real-World Fact / Consensus
+                    </div>
+                    <div style='font-size: 0.98rem; font-weight: 500;'>{row["Corrected Fact / Ground Truth"]}</div>
+                </div>
+                <div class='claim-evidence'>
+                    <b style='color: #D1D5DB;'>Evidence Analysis:</b> {row["Evidence Summary"]}
+                </div>
+                <div style='margin-top: 10px;'>
+                    <div style='font-size: 0.8rem; font-weight: 600; color: #9CA3AF; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.04em;'>
+                        Authoritative Sources (Clickable):
+                    </div>
+                    <div class='source-pills-container'>
+                        {pills_html}
+                    </div>
+                </div>
             </div>
             """, unsafe_allow_html=True)
 
     # Export options
-    csv = df.to_csv(index=False).encode('utf-8')
+    export_df = df.drop(columns=["Sources"], errors="ignore")
+    export_df = export_df.rename(columns={"Sources_str": "Sources"})
+    csv = export_df.to_csv(index=False).encode('utf-8')
     st.download_button(
         label="📥 Export Fact-Check Audit Report (CSV)",
         data=csv,
