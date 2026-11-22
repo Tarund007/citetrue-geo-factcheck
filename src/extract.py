@@ -1,162 +1,126 @@
+"""PDF parsing + claim extraction for CiteTrue GEO.
+Cleans text (drops headings, rejoins wrapped lines) -> Gemini claims -> regex top-up/fallback.
 """
-PDF parsing and structured claim extraction module for CiteTrue GEO.
-Extracts raw text per page via pdfplumber and structured testable claims via LLM.
-"""
-import json
 import re
 from typing import List, Dict, Any
 import pdfplumber
-from google import genai
-from google.genai import types
 
+from src.llm import call_json, STATUS
 from src.prompts import EXTRACTION_SYSTEM_PROMPT
+
+KEYWORDS = (r"\b(founded|acquired|acquisition|launched|released|rebranded|ipo|listed|ceo|chairman|"
+            r"chief executive|headquartered|located|operates?|completed|began|valuation|revenue|"
+            r"employees|beds|cities|countries|unicorns?|users)\b")
+FILLER = r"^(for (example|instance)|meanwhile|however|in contrast|moreover|additionally|also)\b[,:]?\s*"
+SPLIT = r"(?<=[.!?])\s+(?=[A-Z0-9\"“])|;\s+"
 
 
 def parse_pdf_text(file_bytes_or_path) -> List[Dict[str, Any]]:
-    """
-    Reads a PDF file using pdfplumber and returns a list of page dicts:
-    [{"page_number": 1, "text": "..."}]
-    """
-    pages_data = []
+    pages = []
     with pdfplumber.open(file_bytes_or_path) as pdf:
-        for idx, page in enumerate(pdf.pages):
-            text = page.extract_text() or ""
-            pages_data.append({
-                "page_number": idx + 1,
-                "text": text.strip()
-            })
-    return pages_data
+        for i, page in enumerate(pdf.pages):
+            pages.append({"page_number": i + 1, "text": (page.extract_text() or "").strip()})
+    return pages
 
 
-def get_best_available_model(client: genai.Client) -> str:
-    """
-    Dynamically queries client.models.list() to find the active available model,
-    with an intelligent fallback priority.
-    """
-    preferred_order = [
-        'gemini-3.5-flash-lite',
-        'gemini-3.8-flash',
-        'gemini-2.5-flash',
-        'gemini-2.0-flash',
-        'gemini-1.5-flash',
-        'gemini-4-hydrogen'
-    ]
-    try:
-        remote_models = [m.name.replace('models/', '') for m in client.models.list()]
-        for pref in preferred_order:
-            for r in remote_models:
-                if pref in r:
-                    return r
-        # If no preferred found, pick first model supporting generateContent
-        for r in remote_models:
-            if 'flash' in r or 'gemini' in r:
-                return r
-    except Exception:
-        pass
-    return 'gemini-3.5-flash-lite'
+def is_heading(line: str) -> bool:
+    l = line.strip()
+    if not l:
+        return True
+    w = l.split()
+    if l[-1] in ".!?" or len(w) > 12:
+        return False
+    if re.match(r"(?i)^(section|chapter|part|appendix)\b|^\d+[.)]\s", l):
+        return True
+    caps = sum(1 for x in w if x[0].isupper() or not x[0].isalpha())
+    return caps / len(w) >= 0.6
 
 
-def extract_claims_from_text(pages_data: List[Dict[str, Any]], gemini_api_key: str, max_claims: int = 15) -> List[Dict[str, Any]]:
-    """
-    Invokes Gemini with structured schema to extract numerical/date/factual claims.
-    """
-    if not gemini_api_key:
-        return fallback_heuristic_extraction(pages_data, max_claims=max_claims)
+def page_sentences(text: str) -> List[str]:
+    body = " ".join(l.strip() for l in text.split("\n") if l.strip() and not is_heading(l))
+    body = re.sub(r"(\w)-\s+(\w)", r"\1-\2", body)  # rejoin hyphen-wrapped words
+    return [s.strip() for s in re.split(SPLIT, body) if s.strip()]
 
-    # Combine text with page demarcations
-    full_text_corpus = ""
-    for page in pages_data:
-        full_text_corpus += f"\n--- [Page {page['page_number']}] ---\n{page['text']}\n"
 
-    prompt = (
-        f"{EXTRACTION_SYSTEM_PROMPT}\n\n"
-        f"DOCUMENT TEXT TO ANALYZE:\n{full_text_corpus[:15000]}\n\n"
-        f"Extract at most {max_claims} key claims. Format as JSON array only."
-    )
+def checkable(s: str) -> bool:
+    return len(s.split()) >= 6 and bool(re.search(r"\d", s) or re.search(KEYWORDS, s, re.I))
 
-    try:
-        client = genai.Client(api_key=gemini_api_key)
-        best_model = get_best_available_model(client)
-        
-        candidate_models = [
-            best_model,
-            'gemini-3.5-flash-lite',
-            'gemini-2.5-flash',
-            'gemini-2.0-flash',
-            'gemini-1.5-flash',
-            'gemini-4-hydrogen'
-        ]
-        
-        # Deduplicate preserving order
-        candidate_models = list(dict.fromkeys(candidate_models))
-        response = None
-        last_err = None
 
-        for m in candidate_models:
-            try:
-                response = client.models.generate_content(
-                    model=m,
-                    contents=prompt,
-                    config=types.GenerateContentConfig(
-                        response_mime_type="application/json",
-                        temperature=0.1
-                    )
-                )
-                if response and response.text:
-                    break
-            except Exception as err:
-                last_err = err
+def score(s: str) -> int:
+    sc = min(len(re.findall(r"\d[\d,.]*", s)), 3) * 2
+    if re.search(r"\b(19|20)\d{2}\b", s):
+        sc += 2
+    if re.search(r"[$₹€£%]|\b(billion|million|crore|lakh|percent)\b", s, re.I):
+        sc += 2
+    sc += 2 * min(len(re.findall(KEYWORDS, s, re.I)), 2)
+    sc += min(len(re.findall(r"\b[A-Z][a-z]+\b", s[1:])), 4)
+    return sc
+
+
+def clean_query(s: str) -> str:
+    return re.sub(FILLER, "", s, flags=re.I).strip()[:150]
+
+
+def regex_claims(pages: List[Dict[str, Any]], max_claims: int) -> List[Dict[str, Any]]:
+    seen, cands = set(), []
+    for p in pages:
+        for s in page_sentences(p["text"]):
+            k = s.lower()[:60]
+            if k in seen or not checkable(s):
                 continue
-
-        if not response or not response.text:
-            print(f"Gemini API returned error ({last_err}), using deterministic heuristic fallback...")
-            return fallback_heuristic_extraction(pages_data, max_claims=max_claims)
-
-        raw_json = response.text.strip()
-        # Clean potential markdown fences
-        if raw_json.startswith("```json"):
-            raw_json = raw_json[7:]
-        if raw_json.startswith("```"):
-            raw_json = raw_json[3:]
-        if raw_json.endswith("```"):
-            raw_json = raw_json[:-3]
-        
-        claims = json.loads(raw_json.strip())
-        if isinstance(claims, list):
-            return claims[:max_claims]
-        elif isinstance(claims, dict) and "claims" in claims:
-            return claims["claims"][:max_claims]
-        return fallback_heuristic_extraction(pages_data, max_claims=max_claims)
-    except Exception as e:
-        print(f"Extraction exception ({e}), falling back safely...")
-        return fallback_heuristic_extraction(pages_data, max_claims=max_claims)
+            seen.add(k)
+            cands.append((len(cands), score(s), s))
+    top = sorted(cands, key=lambda c: -c[1])[:max_claims]  # best-scored across whole doc
+    top.sort(key=lambda c: c[0])                           # restore document order
+    return [{"claim_id": i + 1, "quote": s, "claim_type": "statistic", "search_query": clean_query(s)}
+            for i, (_, _, s) in enumerate(top)]
 
 
-def fallback_heuristic_extraction(pages_data: List[Dict[str, Any]], max_claims: int = 10) -> List[Dict[str, Any]]:
-    """
-    Deterministic rule-based extractor using regex for percentages, currencies, and years.
-    Ensures zero failure even under heavy rate limits.
-    """
-    claims = []
-    claim_id = 1
-    # Regex patterns for figures, dates, percentages
-    num_pattern = re.compile(r'([^.?!;\n]*?(\$?\d+(?:,\d+)*(?:\.\d+)?%?|\b(?:19|20)\d{2}\b)[^.?!;\n]*)')
+fallback_heuristic_extraction = lambda pages_data, max_claims=15: regex_claims(pages_data, max_claims)
 
-    for p in pages_data:
-        text = p["text"]
-        matches = num_pattern.findall(text)
-        for sentence_tuple in matches:
-            sentence = sentence_tuple[0].strip()
-            if len(sentence) > 20 and not any(c["quote"] == sentence for c in claims):
-                claims.append({
-                    "claim_id": claim_id,
-                    "quote": sentence,
-                    "claim_type": "statistic",
-                    "search_query": sentence[:120]
-                })
-                claim_id += 1
-                if len(claims) >= max_claims:
-                    break
-        if len(claims) >= max_claims:
-            break
+
+def extract_claims_from_text(pages_data, gemini_api_key, max_claims: int = 15):
+    STATUS["extract_mode"] = "regex"
+    corpus = "\n".join(
+        f"[Page {p['page_number']}] " + " ".join(page_sentences(p["text"])) for p in pages_data
+    )
+    claims: List[Dict[str, Any]] = []
+
+    if gemini_api_key and corpus.strip():
+        prompt = (
+            f"{EXTRACTION_SYSTEM_PROMPT}\n\nRULES (override anything above that conflicts):\n"
+            f"- Return a JSON array of at most {max_claims} objects with keys: claim_id (int), "
+            "quote (ONE complete, self-contained sentence copied from the text, subject named; "
+            "never a heading or fragment), claim_type (statistic|date|financial|technical|leadership|geography), "
+            "search_query (neutral query naming the entity and the fact; no verdict words).\n"
+            "- Cover the WHOLE document, every section and page. Prefer verifiable facts: numbers, dates, money, "
+            "named roles, locations, launches, founding, acquisitions.\n"
+            "- Include claims that look wrong or outdated. Do not invent claims.\n\n"
+            f"DOCUMENT:\n{corpus[:20000]}"
+        )
+        data = call_json(gemini_api_key, prompt, temperature=0.1)
+        items = data.get("claims", []) if isinstance(data, dict) else (data or [])
+        for it in items:
+            q = str(it.get("quote", "")).strip() if isinstance(it, dict) else ""
+            if len(q.split()) >= 6:
+                claims.append({"claim_id": 0, "quote": q,
+                               "claim_type": it.get("claim_type", "statistic"),
+                               "search_query": it.get("search_query") or clean_query(q)})
+        if claims:
+            STATUS["extract_mode"] = "llm"
+
+    # Top up with regex claims the LLM skipped (keeps later sections covered)
+    if len(claims) < max_claims:
+        have = [c["quote"].lower() for c in claims]
+        for c in regex_claims(pages_data, max_claims):
+            if len(claims) >= max_claims:
+                break
+            low = c["quote"].lower()
+            if not any(low[:40] in h or h[:40] in low for h in have):
+                claims.append(c)
+                have.append(low)
+
+    claims = claims[:max_claims]
+    for i, c in enumerate(claims):
+        c["claim_id"] = i + 1
     return claims

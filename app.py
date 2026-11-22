@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from src.extract import parse_pdf_text, extract_claims_from_text
 from src.search import search_web
 from src.verify import judge_claim
+from src.llm import STATUS, reset_status
 
 # Load environment variables
 load_dotenv()
@@ -92,6 +93,11 @@ st.markdown("""
         background: rgba(198, 40, 40, 0.18);
         color: #EF5350;
         border: 1px solid rgba(239, 83, 80, 0.4);
+    }
+    .badge-unverified {
+        background: rgba(156, 163, 175, 0.18);
+        color: #9CA3AF;
+        border: 1px solid rgba(156, 163, 175, 0.4);
     }
 
     /* Claim Text and Content */
@@ -180,7 +186,7 @@ with st.sidebar:
     )
     
     st.markdown("---")
-    max_claims_to_check = st.slider("Maximum claims to verify", min_value=3, max_value=20, value=10)
+    max_claims_to_check = st.slider("Maximum claims to verify", 10, 15, 15)
     
     st.markdown("---")
     st.markdown("### 📌 About CiteTrue GEO")
@@ -297,6 +303,7 @@ if target_file and st.button("Run Truth-Check Audit", type="primary"):
     elif not tavily_key:
         st.error("Please enter your Tavily API Key in the sidebar or `.streamlit/secrets.toml`.")
     else:
+        reset_status()
         with st.status("Executing CiteTrue GEO Pipeline...", expanded=True) as status:
             st.write("📖 **Step 1:** Extracting text from document...")
             pages_data = parse_pdf_text(target_file)
@@ -332,6 +339,9 @@ if target_file and st.button("Run Truth-Check Audit", type="primary"):
 
 # Display Results
 if st.session_state.analysis_results:
+    if STATUS.get("extract_mode") == "regex" or STATUS.get("llm_fail", 0) > 0:
+        st.warning("Gemini was rate-limited; some claims show Unverified. Retry in a minute.")
+
     results = st.session_state.analysis_results
     df = pd.DataFrame(results)
 
@@ -342,34 +352,42 @@ if st.session_state.analysis_results:
     verified_count = sum(1 for r in results if r["Verdict"] == "Verified")
     inaccurate_count = sum(1 for r in results if r["Verdict"] == "Inaccurate")
     false_count = sum(1 for r in results if r["Verdict"] == "False")
+    unverified_count = sum(1 for r in results if r["Verdict"] == "Unverified")
 
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3, c4, c5 = st.columns(5)
     with c1:
         st.markdown(f"""
         <div class='metric-card'>
             <div class='metric-number' style='color:#F3F4F6;'>{total_claims}</div>
-            <div class='metric-label'>Total Claims Audited</div>
+            <div class='metric-label'>Total Audited</div>
         </div>
         """, unsafe_allow_html=True)
     with c2:
         st.markdown(f"""
         <div class='metric-card'>
             <div class='metric-number' style='color:#4CAF50;'>{verified_count}</div>
-            <div class='metric-label'>Verified Accurate</div>
+            <div class='metric-label'>Verified</div>
         </div>
         """, unsafe_allow_html=True)
     with c3:
         st.markdown(f"""
         <div class='metric-card'>
             <div class='metric-number' style='color:#FF9800;'>{inaccurate_count}</div>
-            <div class='metric-label'>Inaccurate / Outdated</div>
+            <div class='metric-label'>Inaccurate</div>
         </div>
         """, unsafe_allow_html=True)
     with c4:
         st.markdown(f"""
         <div class='metric-card'>
             <div class='metric-number' style='color:#EF5350;'>{false_count}</div>
-            <div class='metric-label'>False / Fabricated</div>
+            <div class='metric-label'>False</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with c5:
+        st.markdown(f"""
+        <div class='metric-card'>
+            <div class='metric-number' style='color:#9CA3AF;'>{unverified_count}</div>
+            <div class='metric-label'>Unverified</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -378,8 +396,19 @@ if st.session_state.analysis_results:
     
     # Custom display cards for clean PM UI
     for row in results:
-        badge_class = "badge-verified" if row["Verdict"] == "Verified" else ("badge-inaccurate" if row["Verdict"] == "Inaccurate" else "badge-false")
-        border_accent = "#4CAF50" if row["Verdict"] == "Verified" else ("#FF9800" if row["Verdict"] == "Inaccurate" else "#EF5350")
+        v = row["Verdict"]
+        if v == "Verified":
+            badge_class = "badge-verified"
+            border_accent = "#4CAF50"
+        elif v == "Inaccurate":
+            badge_class = "badge-inaccurate"
+            border_accent = "#FF9800"
+        elif v == "False":
+            badge_class = "badge-false"
+            border_accent = "#EF5350"
+        else:
+            badge_class = "badge-unverified"
+            border_accent = "#9CA3AF"
         
         # Build clickable source pills
         sources_list = row.get("Sources", [])
