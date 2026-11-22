@@ -2,7 +2,7 @@
 
 **To:** Hiring Team / Assessment Evaluation Committee, Cog Culture  
 **Subject:** Application Submission: Management Trainee — Product Management (CiteTrue GEO)  
-**Candidate:** Himanshu  
+**Candidate:** Tarun  
 **Date:** November 2026  
 
 ---
@@ -17,10 +17,10 @@ Attached and linked below, you will find the complete deliverables covering **Pa
 
 ### 1. Deliverables Links
 
-- **Deployed Application Link:** `[Insert Live Streamlit Cloud URL here]`
+- **Deployed Application Link:** https://citetrue-geo-factcheck-td.streamlit.app/
 - **GitHub Repository:** https://github.com/Tarund007/citetrue-geo-factcheck
 - **Presentation Deck (Part 1):** Attached in email as `CogCulture_GEO_CiteTrue.pptx` (located in repository at `deliverables/CogCulture_GEO_CiteTrue.pptx`)
-- **30-Second Demo Video Walkthrough:** `[Insert Loom / Drive Link or attached .mp4]`
+- **30-Second Demo Video Walkthrough:** (https://www.loom.com/share/3bd7d26b0d424fba96f596241c3f4174)
 
 ---
 
@@ -45,6 +45,6 @@ Attached and linked below, you will find the complete deliverables covering **Pa
 I look forward to discussing this strategy and product vision in the next round.
 
 Warm regards,  
-**Himanshu**  
+**Tarun Dinkar**  
 Candidate for Management Trainee – Product Management  
 Cog Culture
