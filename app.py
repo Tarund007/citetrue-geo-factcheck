@@ -199,7 +199,11 @@ st.markdown(
 )
 
 # File uploader
-uploaded_file = st.file_uploader("Upload Document (PDF)", type=["pdf"], help="Upload client pitch decks, press releases, or whitepapers.")
+uploaded_file = st.file_uploader(
+    "Upload your Trap Document / Marketing Collateral (PDF)", 
+    type=["pdf"], 
+    help="Upload your own Trap Document, client pitch deck, press release, or whitepaper to test truth accuracy."
+)
 
 # State initialization
 if "analysis_results" not in st.session_state:
